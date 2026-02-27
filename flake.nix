@@ -1,75 +1,69 @@
 {
   inputs = {
+    nixpkgs.url = "nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
+
   outputs =
     {
-      flake-utils,
-      naersk,
-      nixpkgs,
-      rust-overlay,
       self,
-      ...
+      nixpkgs,
+      flake-utils,
+      rust-overlay,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = (import nixpkgs) {
+        pkgs = import nixpkgs {
           inherit system;
-          overlays = [
-            (import rust-overlay)
-          ];
+          overlays = [ rust-overlay.overlays.default ];
         };
-        toolchain = pkgs.rust-bin.fromRustupToolchain (
-          (builtins.fromTOML (builtins.readFile ./rust-toolchain.toml)).toolchain // { "components" = [ ]; }
-        );
-        naersk' = pkgs.callPackage naersk {
-          cargo = toolchain;
-          rustc = toolchain;
-        };
-        package = naersk'.buildPackage {
-          src = ./.;
-        };
+
+        toolchain = pkgs.rust-bin.fromRustupToolchainFile ./src-tauri/rust-toolchain.toml;
+
+        packages = with pkgs; [
+          cargo
+          cargo-tauri
+          toolchain
+          rust-analyzer-unwrapped
+          nodejs
+          nodePackages.pnpm
+          librsvg
+          webkitgtk_4_1
+        ];
+
+        nativeBuildPackages = with pkgs; [
+          pkg-config
+          wrapGAppsHook4
+        ];
+
+        libraries = with pkgs; [
+          gtk3
+          cairo
+          gdk-pixbuf
+          glib
+          dbus
+          openssl
+          librsvg
+        ];
+
       in
       {
-        # nix build and nix run
-        packages = {
-          default = package;
-          wallthi = self.packages.${system}.default;
-        };
 
-        # nix develop
-        devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [
-            rustc
-            cargo
+        devShells.default = pkgs.mkShell {
+          buildInputs = packages;
 
-            # tauri deps
-            pkg-config
-            wrapGAppsHook4
-            cargo
-            cargo-tauri # Optional, Only needed if Tauri doesn't work through the traditional way.
-            nodejs # Optional, this is for if you have a js frontend
-          ];
-          buildInputs = with pkgs; [
-            librsvg
-            webkitgtk_4_1
-          ];
+          nativeBuildInputs = nativeBuildPackages;
 
-          shellHook = "
-            export XDG_DATA_DIRS=\"$GSETTINGS_SCHEMAS_PATH\"
-          ";
+          shellHook = with pkgs; ''
+            export LD_LIBRARY_PATH="${lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH"
+            export OPENSSL_INCLUDE_DIR="${openssl.dev}/include/openssl"
+            export OPENSSL_LIB_DIR="${openssl.out}/lib"
+            export OPENSSL_ROOT_DIR="${openssl.out}"
+            export RUST_SRC_PATH="${toolchain}/lib/rustlib/src/rust/library"
+          '';
         };
       }
-    )
-    // {
-      homeManagerModules.default = import ./nix/home-manager.nix self;
-    };
+    );
 }
