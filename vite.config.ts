@@ -1,12 +1,18 @@
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import tsConfigPaths from "vite-tsconfig-paths";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [
+    tsConfigPaths(),
+    tanstackStart(),
+    // react's vite plugin must come after start's vite plugin
+    viteReact(),
+  ],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -26,7 +32,7 @@ export default defineConfig(async () => ({
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", ".direnv/**"],
     },
   },
 }));
