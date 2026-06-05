@@ -25,3 +25,6 @@ dist-ssr
 .direnv
 
 target
+
+# example
+count.txt

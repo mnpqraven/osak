@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { invoke } from "@tauri-apps/api/core";
 
 const filePath = "count.txt";
 
@@ -17,12 +18,12 @@ const getCount = createServerFn({
   return readCount();
 });
 
-// const _updateCount = createServerFn({ method: "POST" })
-//   .inputValidator((d: number) => d)
-//   .handler(async ({ data }) => {
-//     const count = await readCount();
-//     await fs.promises.writeFile(filePath, `${count + data}`);
-//   });
+const _updateCount = createServerFn({ method: "POST" })
+  .inputValidator((d: number) => d)
+  .handler(async ({ data }) => {
+    const count = await readCount();
+    await fs.promises.writeFile(filePath, `${count + data}`);
+  });
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -30,8 +31,29 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  // const _router = useRouter();
+  const router = useRouter();
   const state = Route.useLoaderData();
 
-  return <button type="button">Add 1 to {state}?</button>;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={async () => {
+          await _updateCount({ data: 1 });
+          router.invalidate();
+        }}
+      >
+        Add 1 to {state}?
+      </button>
+      <button
+        type="button"
+        onClick={async () => {
+          const t = await invoke("greet", { name: "othi" });
+          console.log(t);
+        }}
+      >
+        greet: {}
+      </button>
+    </>
+  );
 }

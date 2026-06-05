@@ -31,6 +31,9 @@
           nodePackages.pnpm
           librsvg
           webkitgtk_4_1
+
+          # dev tools
+          just
         ];
 
         nativeBuildPackages = with pkgs; [
